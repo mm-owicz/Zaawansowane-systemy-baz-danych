@@ -1,0 +1,56 @@
+MATCH (e:Event { name: '2018 League of Legends World Championship' })
+SET e.location = point({latitude: 35.9078, longitude: 127.7669});
+
+MATCH (e:Event { name: 'ELEAGUE Major: Boston 2018' })
+SET e.location = point({latitude: 42.361145, longitude: -71.057083});
+
+MATCH (e:Event { name: 'Evo 2018' })
+SET e.location = point({latitude: 36.188110, longitude: -115.176468});
+
+MATCH (e:Event { name: '2018 Overwatch League Grand Finals' })
+SET e.location = point({latitude: 40.730610, longitude: -73.935242});
+
+MATCH (e:Event { name: 'The International 2018' })
+SET e.location = point({latitude: 49.246292, longitude: -123.116226});
+
+MATCH (e:Event { name: '2019 League of Legends World Championship' })
+SET e.location = point({latitude: 52.520008, longitude: 13.404954});
+
+MATCH (e:Event { name: '2019 Overwatch League Grand Finals' })
+SET e.location = point({latitude: 39.952583, longitude: -75.165222});
+
+MATCH (e:Event { name: 'EVO 2019' })
+SET e.location = point({latitude: 36.188110, longitude: -115.176468});
+
+MATCH (e:Event { name: 'Fortnite World Cup' })
+SET e.location = point({latitude: 40.730610, longitude: -73.935242});
+
+MATCH (e:Event { name: 'IEM Katowice 2019' })
+SET e.location = point({latitude: 50.270908, longitude: 19.039993});
+
+MATCH (e:Event { name: 'The International 2019' })
+SET e.location = point({latitude: 31.224361, longitude: 121.469170});
+
+//
+
+WITH point({latitude: 52.237049, longitude: 21.017532}) AS referencePoint
+MATCH (e:Event)
+RETURN AVG(point.distance(e.location, referencePoint)) AS averageDistance;
+// 20 ms
+
+MATCH (e1:Event { name: '2018 League of Legends World Championship' }), (e2:Event { name: 'The International 2018' })
+RETURN point.distance(e1.location, e2.location) AS distance;
+// 3 ms
+
+WITH point({latitude: 40.730610, longitude: -73.935242}) AS newYorkCity
+MATCH (e:Event)
+WHERE point.distance(e.location, newYorkCity) < 1000
+RETURN COUNT(e) AS eventCount;
+// 24 ms
+
+WITH point({latitude: 52.237049, longitude: 21.017532}) AS warsaw
+MATCH (e:Event)
+WHERE point.distance(e.location, warsaw) < 1000000
+RETURN e.name AS eventName, point.distance(e.location, warsaw) AS distance
+ORDER BY distance;
+// 20 ms

@@ -1,0 +1,13 @@
+CREATE INDEX game_name_index IF NOT EXISTS FOR (g:Game) ON (g.name);
+CREATE INDEX game_link_index IF NOT EXISTS FOR (g:Game) ON (g.link);
+
+CREATE INDEX person_name_index IF NOT EXISTS FOR (p:Person) ON (p.firstName, p.lastName);
+CREATE INDEX person_profession_index IF NOT EXISTS FOR (p:Person) ON (p.profession);
+
+CREATE INDEX award_category_index IF NOT EXISTS FOR (a:Award) ON (a.category);
+CREATE INDEX award_year_index IF NOT EXISTS FOR (a:Award) ON (a.year);
+CREATE INDEX award_votedBy_index IF NOT EXISTS FOR (a:Award) ON (a.votedBy);
+
+CREATE INDEX event_name_index IF NOT EXISTS FOR (e:Event) ON (e.name);
+
+

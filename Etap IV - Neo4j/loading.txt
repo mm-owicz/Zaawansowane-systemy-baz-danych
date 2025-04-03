@@ -1,0 +1,369 @@
+CREATE CONSTRAINT game_link_unique IF NOT EXISTS
+FOR (g:Game)
+REQUIRE g.link IS UNIQUE;
+
+LOAD CSV WITH HEADERS FROM 'file:///steam.csv' AS row
+MERGE (g:Game {
+    link: row.link
+})
+ON CREATE SET g.name = row.game,
+              g.release = row.release,
+              g.detectedTechnologies = row.detected_technologies;
+
+
+CREATE CONSTRAINT publisher_name_unique IF NOT EXISTS
+FOR (p:Publisher)
+REQUIRE p.name IS UNIQUE;
+
+LOAD CSV WITH HEADERS FROM 'file:///steam.csv' AS row
+MATCH (g:Game { link: row.link })
+MERGE (p:Publisher { name: row.publisher })
+MERGE (g)-[:PUBLISHED_BY]->(p);
+
+LOAD CSV WITH HEADERS FROM 'file:///steam.csv' AS row
+MATCH (g:Game { link: row.link })
+MERGE (d:Developer { name: row.developer })
+MERGE (g)-[:DEVELOPED_BY]->(d);
+
+:auto LOAD CSV WITH HEADERS FROM 'file:///steam.csv' AS row
+CALL {
+    WITH row
+    MATCH (g:Game { link: row.link })
+    MERGE (r:ReviewStats {
+        positiveReviews: coalesce(toInteger(row.positive_reviews), 0),
+        negativeReviews: coalesce(toInteger(row.negative_reviews), 0),
+        totalReviews: coalesce(toInteger(row.total_reviews), 0),
+        rating: coalesce(toFloat(row.rating), 0.0),
+        reviewPercentage: coalesce(toFloat(row.review_percentage), 0.0)
+    })
+    MERGE (g)-[:HAS_REVIEW]->(r)
+} IN TRANSACTIONS OF 1000 ROWS;
+
+:auto LOAD CSV WITH HEADERS FROM 'file:///steam.csv' AS row
+CALL {
+    WITH row
+    MATCH (g:Game { link: row.link })
+    MERGE (ps:PlayerStats {
+        peakPlayers: coalesce(toInteger(row.peak_players), 0),
+        playersRightNow: coalesce(toInteger(row.players_right_now), 0),
+        `24HourPeak`: coalesce(toInteger(row.`24_hour_peak`), 0),
+        allTimePeak: coalesce(toInteger(row.all_time_peak), 0),
+        allTimePeakDate: CASE WHEN row.all_time_peak_date IS NULL OR row.all_time_peak_date = '' THEN '' ELSE row.all_time_peak_date END
+    })
+    MERGE (g)-[:HAS_PLAYER_STATS]->(ps)
+} IN TRANSACTIONS OF 1000 ROWS;
+
+
+CREATE CONSTRAINT genre_name_unique IF NOT EXISTS
+FOR (g:Genre)
+REQUIRE g.name IS UNIQUE;
+
+CREATE INDEX genre_name_index IF NOT EXISTS
+FOR (g:Genre)
+ON (g.name);
+
+:auto LOAD CSV WITH HEADERS FROM 'file:///steam.csv' AS row
+CALL {
+    WITH row
+    MATCH (g:Game { link: row.link })
+    MERGE (gen:Genre { name: coalesce(row.primary_genre, '') })
+    MERGE (g)-[:HAS_PRIMARY_GENRE]->(gen)
+} IN TRANSACTIONS OF 1000 ROWS;
+
+:auto LOAD CSV WITH HEADERS FROM 'file:///steam.csv' AS row
+CALL {
+    WITH row
+    MATCH (g:Game { link: row.link })
+    WITH g, SPLIT(row.store_genres, ',') AS genres
+    UNWIND genres AS genreName
+    WITH g, TRIM(genreName) AS trimmedGenreName
+    MERGE (gen:Genre { name: trimmedGenreName })
+    MERGE (g)-[:HAS_STORE_GENRE]->(gen)
+} IN TRANSACTIONS OF 1000 ROWS;
+
+:auto LOAD CSV WITH HEADERS FROM 'file:///awards.csv' AS row
+CALL {
+    WITH row
+    MATCH (g:Game { name: row.nominee })
+    MERGE (a:Award {
+        year: toInteger(row.year),
+        category: row.category,
+        votedBy: row.voted
+    })
+    MERGE (g)-[:NOMINATED_FOR]->(a)
+    FOREACH (_ IN CASE WHEN row.winner = '1' THEN [1] ELSE [] END |
+        MERGE (g)-[:WON]->(a)
+    )
+} IN TRANSACTIONS OF 1000 ROWS;
+
+////////////
+MERGE (a:Award {
+    year: 2019,
+    category: 'Global Gaming Citizens',
+    votedBy: 'jury'
+})
+
+MERGE (p1:Person {
+    firstName: 'Stephen',
+    lastName: 'Machuga',
+    profession: '',
+    nickname: ''
+})
+MERGE (p1)-[:NOMINATED_FOR]->(a)
+MERGE (p1)-[:WON]->(a);
+
+MERGE (p2:Person {
+    firstName: 'Mat',
+    lastName: 'Bergendahl',
+    profession: '',
+    nickname: ''
+})
+MERGE (p2)-[:NOMINATED_FOR]->(a)
+MERGE (p2)-[:WON]->(a);
+
+MERGE (p3:Person {
+    firstName: 'Vanessa',
+    lastName: 'Gill',
+    profession: '',
+    nickname: ''
+})
+MERGE (p3)-[:NOMINATED_FOR]->(a)
+MERGE (p3)-[:WON]->(a);
+
+MERGE (p4:Person {
+    firstName: 'Luke',
+    lastName: '',
+    profession: '',
+    nickname: ''
+})
+MERGE (p4)-[:NOMINATED_FOR]->(a)
+MERGE (p4)-[:WON]->(a);
+
+MERGE (p5:Person {
+    firstName: 'Damon',
+    lastName: 'Packwood',
+    profession: '',
+    nickname: ''
+})
+MERGE (p5)-[:NOMINATED_FOR]->(a)
+MERGE (p5)-[:WON]->(a);
+
+MERGE (p6:Person {
+    firstName: 'Fereshteh',
+    lastName: 'Forough',
+    profession: '',
+    nickname: ''
+})
+MERGE (p6)-[:NOMINATED_FOR]->(a)
+MERGE (p6)-[:WON]->(a);
+
+////////////////////
+
+LOAD CSV WITH HEADERS FROM 'file:///awards.csv' AS row
+WITH row
+WHERE row.category = 'Best Esports Host'
+WITH row, SPLIT(row.nominee, ' ') AS nameParts
+WITH row, nameParts,
+     nameParts[0] AS firstName,
+     nameParts[-1] AS lastName,
+     CASE
+         WHEN SIZE(nameParts) > 2 AND nameParts[1] STARTS WITH '"' AND nameParts[1] ENDS WITH '"' THEN SUBSTRING(nameParts[1], 1, SIZE(nameParts[1]) - 2)
+         ELSE NULL
+     END AS nickname
+WITH row, firstName, lastName, coalesce(nickname, '') AS nickname
+MERGE (a:Award {
+    year: toInteger(row.year),
+    category: row.category,
+    votedBy: row.voted
+})
+MERGE (p:Person {
+    firstName: firstName,
+    lastName: lastName,
+    profession: 'Event host',
+    nickname: nickname
+})
+MERGE (p)-[:NOMINATED_FOR]->(a)
+FOREACH (_ IN CASE WHEN row.winner = '1' THEN [1] ELSE [] END |
+    MERGE (p)-[:WON]->(a)
+);
+
+LOAD CSV WITH HEADERS FROM 'file:///awards.csv' AS row
+WITH row
+WHERE row.category = 'Best Esports Event'
+MERGE (a:Award {
+    year: toInteger(row.year),
+    category: row.category,
+    votedBy: row.voted
+})
+MERGE (e:Event {
+    name: row.nominee
+})
+MERGE (e)-[:NOMINATED_FOR]->(a)
+FOREACH (_ IN CASE WHEN row.winner = '1' THEN [1] ELSE [] END |
+    MERGE (e)-[:WON]->(a)
+);
+
+LOAD CSV WITH HEADERS FROM 'file:///awards.csv' AS row
+WITH row
+WHERE row.category = 'Best Esports Coach'
+WITH row, SPLIT(row.nominee, ' ') AS nameParts,
+     CASE
+         WHEN row.nominee CONTAINS '(' THEN TRIM(SPLIT(row.nominee, '(')[0])
+         ELSE row.nominee
+     END AS nameWithoutTeam,
+     CASE
+         WHEN row.nominee CONTAINS '(' THEN TRIM(REPLACE(SPLIT(row.nominee, '(')[1], ')', ''))
+         ELSE NULL
+     END AS teamGame
+WITH row, nameParts, nameWithoutTeam, teamGame,
+     nameParts[0] AS firstName,
+     nameParts[-1] AS lastName,
+     CASE
+         WHEN SIZE(nameParts) > 2 AND nameParts[1] STARTS WITH '"' AND nameParts[1] ENDS WITH '"' THEN SUBSTRING(nameParts[1], 1, SIZE(nameParts[1]) - 2)
+         ELSE NULL
+     END AS nickname,
+     SPLIT(teamGame, ', ') AS teamGameParts
+WITH row, firstName, lastName, coalesce(nickname, '') AS nickname, teamGameParts,
+     teamGameParts[0] AS team,
+     CASE
+         WHEN SIZE(teamGameParts) > 1 THEN teamGameParts[1]
+         ELSE NULL
+     END AS game
+MERGE (a:Award {
+    year: toInteger(row.year),
+    category: row.category,
+    votedBy: row.voted
+})
+MERGE (p:Person {
+    firstName: firstName,
+    lastName: lastName,
+    profession: 'Esports Coach',
+    nickname: nickname
+})
+MERGE (t:EsportsTeam {
+    name: team
+})
+MERGE (p)-[:COACH_OF]->(t)
+MERGE (a)-[:NOMINATED_FOR]->(p)
+FOREACH (_ IN CASE WHEN row.winner = '1' THEN [1] ELSE [] END |
+    MERGE (a)-[:WON]->(p)
+);
+
+LOAD CSV WITH HEADERS FROM 'file:///awards.csv' AS row
+WITH row
+WHERE row.category = 'Best Esports Team'
+WITH row,
+     CASE
+         WHEN row.nominee CONTAINS '(' THEN TRIM(SUBSTRING(row.nominee, 0, INSTR(row.nominee, '(') - 1))
+         ELSE row.nominee
+     END AS teamName
+MERGE (a:Award {
+    year: toInteger(row.year),
+    category: row.category,
+    votedBy: row.voted
+})
+MERGE (t:EsportsTeam {
+    name: teamName
+})
+MERGE (t)-[:NOMINATED_FOR]->(a)
+FOREACH (_ IN CASE WHEN row.winner = '1' THEN [1] ELSE [] END |
+    MERGE (t)-[:WON]->(a)
+);
+
+LOAD CSV WITH HEADERS FROM 'file:///awards.csv' AS row
+WITH row
+WHERE row.category = 'Best Esports Player'
+WITH row, SPLIT(row.nominee, ' ') AS nameParts,
+     CASE
+         WHEN row.nominee CONTAINS '(' THEN TRIM(SPLIT(row.nominee, '(')[0])
+         ELSE row.nominee
+     END AS nameWithoutTeam,
+     CASE
+         WHEN row.nominee CONTAINS '(' THEN TRIM(REPLACE(SPLIT(row.nominee, '(')[1], ')', ''))
+         ELSE NULL
+     END AS teamGame
+WITH row, nameParts, nameWithoutTeam, teamGame,
+     nameParts[0] AS firstName,
+     nameParts[-1] AS lastName,
+     CASE
+         WHEN SIZE(nameParts) > 2 AND nameParts[1] STARTS WITH '"' AND nameParts[1] ENDS WITH '"' THEN SUBSTRING(nameParts[1], 1, SIZE(nameParts[1]) - 2)
+         ELSE NULL
+     END AS nickname,
+     SPLIT(teamGame, ', ') AS teamGameParts
+WITH row, firstName, lastName, coalesce(nickname, '') AS nickname, teamGameParts,
+     teamGameParts[0] AS team
+MERGE (a:Award {
+    year: toInteger(row.year),
+    category: row.category,
+    votedBy: row.voted
+})
+MERGE (p:Person {
+    firstName: firstName,
+    lastName: lastName,
+    profession: 'Esports player',
+    nickname: nickname
+})
+MERGE (t:EsportsTeam {
+    name: team
+})
+MERGE (p)-[:MEMBER_OF]->(t)
+MERGE (p)-[:NOMINATED_FOR]->(a)
+FOREACH (_ IN CASE WHEN row.winner = '1' THEN [1] ELSE [] END |
+    MERGE (p)-[:WON]->(a)
+);
+
+// 5 Nowych węzłów:
+
+// 1- Gra
+MERGE (g1:Game {
+    link: '/app/2531310/'
+})
+ON CREATE SET g1.name = 'The Last of Us Part II',
+              g1.release = '2020-06-19',
+              g1.detectedTechnologies = '';
+MERGE (p1:Publisher { name: 'PlayStation PC LLC' })
+MERGE (g1)-[:PUBLISHED_BY]->(p1)
+MERGE (d1:Developer { name: 'Naughty Dog LLC' })
+MERGE (g1)-[:DEVELOPED_BY]->(d1)
+MERGE (gen1:Genre { name: 'Adventure (25)' })
+MERGE (g1)-[:HAS_PRIMARY_GENRE]->(gen1);
+
+
+// 2 - Gra
+MERGE (g2:Game {
+    link: '/app/2215430/'
+})
+ON CREATE SET g2.name = 'Ghost of Tsushima',
+              g2.release = '2020-06-20',
+              g2.detectedTechnologies = '';
+MERGE (p2:Publisher { name: 'PlayStation PC LLC' })
+MERGE (g2)-[:PUBLISHED_BY]->(p2)
+// 3 - Deweloper
+MERGE (d2:Developer { name: 'Sucker Punch Productions' })
+MERGE (g2)-[:DEVELOPED_BY]->(d2)
+MERGE (gen2:Genre { name: 'Action (1)' })
+MERGE (g2)-[:HAS_PRIMARY_GENRE]->(gen2);
+
+// 4 - Award
+MERGE (g1:Game { link: '/app/2531310/' })
+MERGE (g2:Game { link: '/app/2215430/' })
+MERGE (a:Award {
+    year: 2020,
+    category: 'Game of the Year',
+    votedBy: 'jury'
+})
+
+MERGE (g1)-[:NOMINATED_FOR]->(a)
+MERGE (g2)-[:WON]->(a)
+MERGE (g2)-[:NOMINATED_FOR]->(a)
+
+// 5 - Award
+MERGE (a2:Award {
+    year: 2021,
+    category: 'Game of the Year',
+    votedBy: 'jury'
+})
+
+MERGE (g3:Game { link: '/app/1426210/' })
+MERGE (g3)-[:NOMINATED_FOR]->(a2)
+MERGE (g3)-[:WON]->(a2)

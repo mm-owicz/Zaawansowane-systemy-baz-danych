@@ -1,0 +1,26 @@
+PROFILE
+MATCH (g:Game)-[:WON]->(a:Award)
+WHERE a.year = 2017
+RETURN g.name AS name, a.category AS category, a.year AS year
+UNION
+MATCH (p:Person)-[:WON]->(a:Award)
+WHERE a.year = 2017
+RETURN p.firstName + ' ' + p.lastName AS name, a.category AS category, a.year AS year;
+
+PROFILE
+MATCH (p:Person { firstName: 'Eefje', lastName: 'Depoortere' })-[:WON]->(a:Award)
+RETURN a.category AS category, a.year AS year, a.votedBy AS votedBy;
+
+PROFILE
+MATCH (p:Person)-[:NOMINATED_FOR]->(a:Award { category: 'Best Esports Host', year: 2018 })
+RETURN p.firstName AS firstName, p.lastName AS lastName, a.year AS year, a.votedBy AS votedBy;
+
+PROFILE
+MATCH (g:Game)-[:WON]->(a:Award { category: 'Game of the Year' })
+RETURN g.name AS gameName, a.year AS awardYear, a.votedBy AS votedBy
+ORDER BY a.year;
+
+PROFILE
+MERGE (p:Person { firstName: 'Kim', lastName: 'Jeong-gyun' })
+ON CREATE SET p.profession = 'Esports Coach', p.nickname = 'kkOma'
+RETURN p.firstName AS firstName, p.lastName AS lastName, p.profession AS profession, p.nickname AS nickname;
