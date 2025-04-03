@@ -30,12 +30,12 @@ Etap III -> Stworzenie bd w MongoDB (nowy zbiór danych):
 - Implementacja transakcji (w javascript)
 - Zapytania geoprzestrzenne
 
-  Etap IV -> Stworzenie bd w Neo4j (nowy zbiór danych):
-  - Przetworzenie i import danych, ręczne dodawanie danych z MERGE
-  - Zapytania typu MATCH
-  - Dodanie indeksów, analiza indeksów
-  - Dodanie danych przestrzennych, zapytania przestrzenne
-  - Implementacja procedur w Javie
-  - Analiza zbioru danych - węzły przegubowe, mosty, podgrafy
-  - Funkcjonalności biblioteki APOC
+Etap IV -> Stworzenie bd w Neo4j (nowy zbiór danych):
+- Przetworzenie i import danych, ręczne dodawanie danych z MERGE
+- Zapytania typu MATCH
+- Dodanie indeksów, analiza indeksów
+- Dodanie danych przestrzennych, zapytania przestrzenne
+- Implementacja procedur w Javie
+- Analiza zbioru danych - węzły przegubowe, mosty, podgrafy
+- Funkcjonalności biblioteki APOC
 
